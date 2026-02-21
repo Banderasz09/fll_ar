@@ -1,0 +1,74 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ar_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - ar_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ar_backend
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      BACKEND_PORT: 8000
+      DEBUG: "true"
+      MODEL_PATH: runs/detect/custom/weights/best.pt
+    volumes:
+      - ./backend:/app/backend
+      - ./workers:/app/workers
+      - ./models:/app/models
+      - ./config:/app/config
+      - ./training:/app/training
+      - ./data:/app/data
+      - ./runs:/app/runs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - ar_network
+    command: python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MODEL_PATH: runs/detect/custom/weights/best.pt
+      DEBUG: "true"
+    volumes:
+      - ./workers:/app/workers
+      - ./models:/app/models
+      - ./config:/app/config
+      - ./runs:/app/runs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - ar_network
+    command: rq worker -u redis://redis:6379/0 --with-scheduler --worker-class rq.worker.SimpleWorker
+    deploy:
+      replicas: 2  # Run 2 worker instances
+
+volumes:
+  redis_data:
+
+networks:
+  ar_network:
+    driver: bridge

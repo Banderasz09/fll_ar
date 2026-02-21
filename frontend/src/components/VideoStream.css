@@ -1,0 +1,92 @@
+.video-stream-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 15px;
+}
+
+.video-wrapper {
+  flex: 1;
+  position: relative;
+  background-color: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.webcam {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.overlay-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 15px;
+  background-color: #0d0d0d;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-primary {
+  background-color: #00ff00;
+  color: #000;
+  border: 2px solid #00ff00;
+}
+
+.btn-primary:hover {
+  background-color: #00dd00;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+  transform: scale(1.02);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-danger {
+  background-color: #ff4444;
+  color: #fff;
+  border: 2px solid #ff4444;
+}
+
+.btn-danger:hover {
+  background-color: #ff2222;
+  box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+  transform: scale(1.02);
+}
+
+.btn-danger:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

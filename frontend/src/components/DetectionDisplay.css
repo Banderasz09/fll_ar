@@ -1,0 +1,60 @@
+.detection-display {
+  padding: 15px;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+
+.detection-display h3 {
+  margin-top: 0;
+  color: #00ff00;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.detections-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.detection-item {
+  padding: 8px;
+  margin-bottom: 6px;
+  background-color: rgba(0, 255, 0, 0.05);
+  border-left: 3px solid #00ff00;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.detection-item .label {
+  color: #00ff00;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.detection-item .confidence {
+  color: #ff9900;
+  font-size: 11px;
+  margin-right: 8px;
+}
+
+.detection-item .coords {
+  color: #888;
+  font-family: monospace;
+  font-size: 10px;
+}
+
+.no-detections {
+  color: #888;
+  font-style: italic;
+  font-size: 12px;
+  margin: 10px 0;
+}
