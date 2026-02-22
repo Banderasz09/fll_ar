@@ -255,6 +255,21 @@ async def detect_image(frame_id: str):
 if __name__ == "__main__":
     import uvicorn
 
+    ssl_cert_file = os.getenv("SSL_CERT_FILE")
+    ssl_key_file = os.getenv("SSL_KEY_FILE")
+
+    ssl_kwargs = {}
+    if ssl_cert_file and ssl_key_file and os.path.isfile(ssl_cert_file) and os.path.isfile(ssl_key_file):
+        ssl_kwargs = {
+            "ssl_certfile": ssl_cert_file,
+            "ssl_keyfile": ssl_key_file,
+        }
+
     uvicorn.run(
-        "main:app", host="0.0.0.0", port=BACKEND_PORT, reload=DEBUG, log_level="info"
+        "main:app",
+        host="0.0.0.0",
+        port=BACKEND_PORT,
+        reload=DEBUG,
+        log_level="info",
+        **ssl_kwargs,
     )

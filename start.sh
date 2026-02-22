@@ -11,7 +11,12 @@ sleep 2
 # Start backend server
 echo "Starting backend server..."
 cd "$(dirname "$0")"
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload &
+SSL_ARGS=""
+if [[ -f ./ssl/cert.pem && -f ./ssl/key.pem ]]; then
+    SSL_ARGS="--ssl-certfile ./ssl/cert.pem --ssl-keyfile ./ssl/key.pem"
+fi
+
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload $SSL_ARGS &
 BACKEND_PID=$!
 
 echo "✓ Backend started (PID: $BACKEND_PID)"

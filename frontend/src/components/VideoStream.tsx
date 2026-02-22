@@ -40,12 +40,21 @@ const VideoStream: React.FC<VideoStreamProps> = ({
     };
   }, []);
 
+  const resolveWebSocketUrl = useCallback(() => {
+    const envUrl = process.env.REACT_APP_WS_URL?.trim();
+    if (envUrl) {
+      return envUrl;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.hostname}:8000/ws/stream`;
+  }, []);
+
   const connectWebSocket = useCallback(() => {
     onStatusChange('connecting');
-    
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:8000/ws/stream`;
-    
+
+    const wsUrl = resolveWebSocketUrl();
+
     try {
       const ws = new WebSocket(wsUrl);
       
@@ -94,7 +103,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({
       onStatusChange('disconnected');
       setTimeout(connectWebSocket, 3000);
     }
-  }, [onStatusChange, onDetectionsUpdate]);
+  }, [onStatusChange, onDetectionsUpdate, resolveWebSocketUrl]);
 
   // Start streaming video frames
   const startStreaming = useCallback(() => {

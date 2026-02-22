@@ -28,11 +28,14 @@ services:
       BACKEND_PORT: 8000
       DEBUG: "true"
       MODEL_PATH: runs/detect/custom/weights/best.pt
+      SSL_CERT_FILE: /app/ssl/cert.pem
+      SSL_KEY_FILE: /app/ssl/key.pem
     volumes:
       - ./backend:/app/backend
       - ./workers:/app/workers
       - ./models:/app/models
       - ./config:/app/config
+      - ./ssl:/app/ssl:ro
       - ./training:/app/training
       - ./data:/app/data
       - ./runs:/app/runs
@@ -41,7 +44,7 @@ services:
         condition: service_healthy
     networks:
       - ar_network
-    command: python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    command: python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload --ssl-certfile /app/ssl/cert.pem --ssl-keyfile /app/ssl/key.pem
 
   worker:
     build:

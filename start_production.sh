@@ -14,7 +14,14 @@ redis-server --daemonize yes --dir ./data
 
 # Start backend
 echo "Starting backend server..."
-python -m uvicorn backend.main:app --host 0.0.0.0 --port $BACKEND_PORT &
+SSL_ARGS=""
+if [[ -n "${SSL_CERT_FILE:-}" && -n "${SSL_KEY_FILE:-}" ]]; then
+    SSL_ARGS="--ssl-certfile $SSL_CERT_FILE --ssl-keyfile $SSL_KEY_FILE"
+elif [[ -f ./ssl/cert.pem && -f ./ssl/key.pem ]]; then
+    SSL_ARGS="--ssl-certfile ./ssl/cert.pem --ssl-keyfile ./ssl/key.pem"
+fi
+
+python -m uvicorn backend.main:app --host 0.0.0.0 --port $BACKEND_PORT $SSL_ARGS &
 BACKEND_PID=$!
 
 # Start workers
