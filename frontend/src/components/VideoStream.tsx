@@ -7,6 +7,8 @@ interface VideoStreamProps {
   onStatusChange: (status: 'connecting' | 'connected' | 'disconnected') => void;
   onStatsUpdate: (stats: any) => void;
   debugMode: boolean;
+  onToggleDebug: () => void;
+  serverStatus: 'connecting' | 'connected' | 'disconnected';
 }
 
 const VideoStream: React.FC<VideoStreamProps> = ({
@@ -14,15 +16,19 @@ const VideoStream: React.FC<VideoStreamProps> = ({
   onStatusChange,
   onStatsUpdate,
   debugMode,
+  onToggleDebug,
+  serverStatus,
 }) => {
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const isStreamingRef = useRef(false);
   const frameCountRef = useRef(0);
   const lastDetectionsRef = useRef<any[]>([]);
+  const currentFpsRef = useRef(0);
   const statsRef = useRef({
     framesSent: 0,
     framesProcessed: 0,
@@ -154,6 +160,10 @@ const VideoStream: React.FC<VideoStreamProps> = ({
     isStreamingRef.current = false;
   }, []);
 
+  const toggleCamera = useCallback(() => {
+    setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
+  }, []);
+
   // Update stats periodically
   useEffect(() => {
     const statsInterval = setInterval(() => {
@@ -167,6 +177,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({
       const now = Date.now();
       const recentTimestamps = statsRef.current.timestamps.filter((t) => now - t < 1000);
       const currentFPS = recentTimestamps.length;
+      currentFpsRef.current = currentFPS;
 
       onStatsUpdate({
         framesSent: statsRef.current.framesSent,
@@ -247,26 +258,48 @@ const VideoStream: React.FC<VideoStreamProps> = ({
           videoConstraints={{
             width: 1920,
             height: 1080,
-            facingMode: 'user',
+            facingMode: facingMode,
           }}
           className="webcam"
         />
         <canvas ref={overlayCanvasRef} className="overlay-canvas" />
+        
+        <div className="camera-info">
+          <div className="info-text">
+            Frames: {statsRef.current.framesSent} | Detected: {statsRef.current.framesProcessed} | FPS: {currentFpsRef.current || 0}
+          </div>
+          <div className="info-text">
+            Objects: {lastDetectionsRef.current.length}
+          </div>
+        </div>
+
+        <div className="floating-controls">
+          {!isStreaming ? (
+            <button className="btn-circle btn-primary" onClick={startStreaming} title="Start Streaming">
+              ▶
+            </button>
+          ) : (
+            <button className="btn-circle btn-danger" onClick={stopStreaming} title="Stop Streaming">
+              ⏹
+            </button>
+          )}
+          <button className="btn-circle btn-secondary" onClick={toggleCamera} title="Turn Camera">
+            🔄
+          </button>
+          <button 
+            className={`btn-circle btn-debug ${debugMode ? 'active' : ''}`} 
+            onClick={onToggleDebug} 
+            title={debugMode ? 'Debug ON' : 'Debug OFF'}
+          >
+            🐛
+          </button>
+          <div className={`status-badge ${serverStatus}`}>
+            {serverStatus.charAt(0).toUpperCase() + serverStatus.slice(1)}
+          </div>
+        </div>
       </div>
 
       <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-      <div className="controls">
-        {!isStreaming ? (
-          <button className="btn btn-primary" onClick={startStreaming}>
-            ▶ Start Streaming
-          </button>
-        ) : (
-          <button className="btn btn-danger" onClick={stopStreaming}>
-            ⏹ Stop Streaming
-          </button>
-        )}
-      </div>
     </div>
   );
 };

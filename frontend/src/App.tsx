@@ -34,21 +34,6 @@ function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <h1>🎯 Real-time Object Detection</h1>
-        <div className="header-controls">
-          <button 
-            className={`debug-btn ${debug ? 'active' : ''}`}
-            onClick={toggleDebug}
-          >
-            {debug ? '🐛 Debug ON' : '🐛 Debug OFF'}
-          </button>
-          <div className={`status-indicator ${serverStatus}`}>
-            {serverStatus.toUpperCase()}
-          </div>
-        </div>
-      </header>
-
       <main className="main-container">
         <div className="video-section">
           <VideoStream
@@ -56,6 +41,8 @@ function App() {
             onStatusChange={handleStatusChange}
             onStatsUpdate={handleStatsUpdate}
             debugMode={debug}
+            onToggleDebug={toggleDebug}
+            serverStatus={serverStatus}
           />
         </div>
 
@@ -68,10 +55,6 @@ function App() {
           />
         </aside>
       </main>
-
-      <footer className="footer">
-        <p>RTX 4070 • YOLOv8m • 1080p @ ~20-25 FPS</p>
-      </footer>
     </div>
   );
 }

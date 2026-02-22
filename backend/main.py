@@ -86,7 +86,7 @@ app.add_middleware(
 )
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     """Health check endpoint."""
     try:
@@ -255,15 +255,22 @@ async def detect_image(frame_id: str):
 if __name__ == "__main__":
     import uvicorn
 
+    """
     ssl_cert_file = os.getenv("SSL_CERT_FILE")
     ssl_key_file = os.getenv("SSL_KEY_FILE")
 
     ssl_kwargs = {}
-    if ssl_cert_file and ssl_key_file and os.path.isfile(ssl_cert_file) and os.path.isfile(ssl_key_file):
+    if (
+        ssl_cert_file
+        and ssl_key_file
+        and os.path.isfile(ssl_cert_file)
+        and os.path.isfile(ssl_key_file)
+    ):
         ssl_kwargs = {
             "ssl_certfile": ssl_cert_file,
             "ssl_keyfile": ssl_key_file,
         }
+    """
 
     uvicorn.run(
         "main:app",
@@ -271,5 +278,5 @@ if __name__ == "__main__":
         port=BACKEND_PORT,
         reload=DEBUG,
         log_level="info",
-        **ssl_kwargs,
+        # **ssl_kwargs,
     )
