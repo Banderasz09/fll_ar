@@ -17,6 +17,9 @@ const DetectionDisplay: React.FC<DetectionDisplayProps> = ({ detections, debugMo
           {detections.map((det, idx) => (
             <li key={idx} className="detection-item">
               <span className="label">{det.label}</span>
+              {debugMode && det.definition && (
+                <span className="definition">{det.definition}</span>
+              )}
               {debugMode && (
                 <>
                   <span className="confidence">{(det.confidence * 100).toFixed(0)}%</span>

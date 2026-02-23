@@ -207,6 +207,43 @@ const VideoStream: React.FC<VideoStreamProps> = ({
       canvas.height = video.videoHeight;
     }
 
+    // Helper function to wrap text with approximately 5 words per line
+    const wrapText = (text: string, maxWordsPerLine: number = 5): string[] => {
+      const words = text.split(' ');
+      const lines: string[] = [];
+      let currentLine: string[] = [];
+
+      for (const word of words) {
+        currentLine.push(word);
+        if (currentLine.length >= maxWordsPerLine) {
+          lines.push(currentLine.join(' '));
+          currentLine = [];
+        }
+      }
+
+      if (currentLine.length > 0) {
+        lines.push(currentLine.join(' '));
+      }
+
+      return lines;
+    };
+
+    // Helper function to draw rounded rectangles
+    const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number = 6) => {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.arcTo(x + width, y, x + width, y + radius, radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+      ctx.lineTo(x + radius, y + height);
+      ctx.arcTo(x, y + height, x, y + height - radius, radius);
+      ctx.lineTo(x, y + radius);
+      ctx.arcTo(x, y, x + radius, y, radius);
+      ctx.closePath();
+      ctx.fill();
+    };
+
     const drawFrame = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
@@ -214,30 +251,101 @@ const VideoStream: React.FC<VideoStreamProps> = ({
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw detections
-      lastDetectionsRef.current.forEach((detection) => {
-        const { x, y, width, height, label, confidence } = detection;
+      // Show text labels with rounded background when NOT in debug mode
+      if (!debugMode) {
+        lastDetectionsRef.current.forEach((detection) => {
+          const { x, y, definition } = detection;
 
-        // Draw bounding box
-        ctx.strokeStyle = 'rgb(0, 255, 0)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, width, height);
+          // Use definition if available, otherwise skip
+          if (!definition) return;
 
-        // Draw label
-        const text = debugMode ? `${label} ${(confidence * 100).toFixed(0)}%` : label;
-        ctx.fillStyle = 'rgb(0, 255, 0)';
-        ctx.font = 'bold 16px Arial';
-        const textMetrics = ctx.measureText(text);
-        const textHeight = 20;
+          // Set up text
+          ctx.font = '18px Arial';
+          const lines = wrapText(definition, 5);
+          let maxWidth = 0;
+          
+          // Calculate max width
+          for (const line of lines) {
+            const textMetrics = ctx.measureText(line);
+            maxWidth = Math.max(maxWidth, textMetrics.width);
+          }
 
-        // Background for text
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, y - textHeight - 4, textMetrics.width + 8, textHeight + 4);
+          const textHeight = 21;
+          const padding = 6;
+          
+          const boxX = x;
+          const boxY = y - (lines.length * textHeight) - padding;
+          const boxWidth = maxWidth + padding * 2;
+          const boxHeight = (lines.length * textHeight) + padding;
 
-        // Text
-        ctx.fillStyle = 'rgb(0, 255, 0)';
-        ctx.fillText(text, x + 4, y - 6);
-      });
+          // Draw rounded background
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+          drawRoundedRect(ctx, boxX, boxY, boxWidth, boxHeight, 6);
+
+          // Draw definition text lines
+          ctx.fillStyle = 'rgb(173, 216, 230)'; // Light blue
+          ctx.font = '18px Arial';
+          let textOffsetY = boxY + textHeight;
+          for (const line of lines) {
+            ctx.fillText(line, boxX + padding / 2, textOffsetY);
+            textOffsetY += textHeight;
+          }
+        });
+      } else {
+        // Debug mode: show boxes, labels with confidence, and definitions
+        lastDetectionsRef.current.forEach((detection) => {
+          const { x, y, width, height, label, definition, confidence } = detection;
+
+          // Draw bounding box (only in debug mode)
+          ctx.strokeStyle = 'rgb(0, 255, 0)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x, y, width, height);
+
+          // Prepare text (label + confidence in debug mode)
+          const labelText = `${label} ${(confidence * 100).toFixed(0)}%`;
+          const defText = definition ? definition : '';
+          
+          // Wrap definition text to approximately 5 words per line
+          const wrappedLines = defText ? wrapText(defText, 5) : [];
+          
+          ctx.fillStyle = 'rgb(0, 255, 0)';
+          ctx.font = 'bold 16px Arial';
+          const labelMetrics = ctx.measureText(labelText);
+          
+          let totalHeight = 20;
+          let maxWidth = labelMetrics.width;
+          
+          // Calculate total height needed for wrapped definition
+          if (wrappedLines.length > 0) {
+            ctx.font = '12px Arial';
+            for (const line of wrappedLines) {
+              const lineMetrics = ctx.measureText(line);
+              maxWidth = Math.max(maxWidth, lineMetrics.width);
+            }
+            totalHeight += wrappedLines.length * 14; // 14px per line for definition
+          }
+
+          // Background for text
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          ctx.fillRect(x, y - totalHeight - 4, maxWidth + 8, totalHeight + 4);
+
+          // Draw label text
+          ctx.fillStyle = 'rgb(0, 255, 0)';
+          ctx.font = 'bold 16px Arial';
+          ctx.fillText(labelText, x + 4, y - 6);
+          
+          // Draw wrapped definition text if available in light blue
+          if (wrappedLines.length > 0) {
+            ctx.fillStyle = 'rgb(173, 216, 230)'; // Light blue
+            ctx.font = '12px Arial';
+            let defOffsetY = y + 10;
+            for (const line of wrappedLines) {
+              ctx.fillText(line, x + 4, defOffsetY);
+              defOffsetY += 14;
+            }
+          }
+        });
+      }
 
       if (isStreamingRef.current) {
         requestAnimationFrame(drawFrame);

@@ -30,6 +30,11 @@ MODEL_PATH = os.getenv("MODEL_PATH", "models/best.pt")
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", 0.5))
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
+# Object definitions dictionary mapping class names to their descriptions
+OBJECT_DEFINITIONS = {
+    "sarga": "lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+}
+
 # Initialize Redis
 redis_client = redis.Redis(
     host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=False
@@ -95,6 +100,9 @@ def run_inference(frame: np.ndarray) -> tuple[List[Dict[str, Any]], float]:
             confidence = float(box.conf[0])
             class_name = model.names[class_id]
 
+            # Get definition from dictionary (default to empty string if not found)
+            definition = OBJECT_DEFINITIONS.get(class_name.lower(), "")
+
             detections.append(
                 {
                     "x": int(x),
@@ -102,6 +110,7 @@ def run_inference(frame: np.ndarray) -> tuple[List[Dict[str, Any]], float]:
                     "width": int(w),
                     "height": int(h),
                     "label": class_name,
+                    "definition": definition,
                     "confidence": round(confidence, 3),
                     "class_id": int(class_id),
                 }
