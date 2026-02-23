@@ -22,6 +22,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const videoWrapperRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
@@ -42,6 +43,63 @@ const VideoStream: React.FC<VideoStreamProps> = ({
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
+      }
+    };
+  }, []);
+
+  // Handle orientation changes on mobile
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      // Force a small delay to allow the browser to finish the orientation transition
+      setTimeout(() => {
+        if (overlayCanvasRef.current && webcamRef.current?.video) {
+          const video = webcamRef.current.video;
+          const canvas = overlayCanvasRef.current;
+          
+          // Reset canvas dimensions to match video dimensions exactly
+          canvas.width = video.videoWidth || 1920;
+          canvas.height = video.videoHeight || 1080;
+          
+          // Force the canvas to repaint
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
+        }
+      }, 50);
+    };
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        // Exited fullscreen, unlock orientation
+        if (screen.orientation && screen.orientation.unlock) {
+          try {
+            screen.orientation.unlock();
+          } catch (err) {
+            console.log('Orientation unlock failed:', err);
+          }
+        }
+      }
+    };
+
+    // Listen for orientation changes and window resize
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleOrientationChange);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    
+    // Also handle when the video metadata is loaded for the first time
+    if (webcamRef.current?.video) {
+      webcamRef.current.video.addEventListener('loadedmetadata', handleOrientationChange);
+    }
+
+    return () => {
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', handleOrientationChange);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      if (webcamRef.current?.video) {
+        webcamRef.current.video.removeEventListener('loadedmetadata', handleOrientationChange);
       }
     };
   }, []);
@@ -115,6 +173,29 @@ const VideoStream: React.FC<VideoStreamProps> = ({
   const startStreaming = useCallback(() => {
     setIsStreaming(true);
     isStreamingRef.current = true;
+
+    // Request fullscreen on mobile devices
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile && videoWrapperRef.current) {
+      const element = videoWrapperRef.current as any;
+      
+      // Try to lock the orientation to landscape for better streaming experience
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch((err: Error) => {
+          console.log('Orientation lock failed:', err);
+        });
+      }
+      
+      if (element.requestFullscreen) {
+        element.requestFullscreen().catch((err: Error) => console.log('Fullscreen request failed:', err));
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      } else if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+      } else if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+      }
+    }
     
     const captureAndSend = () => {
       if (!isStreamingRef.current || !webcamRef.current || !canvasRef.current) return;
@@ -158,6 +239,15 @@ const VideoStream: React.FC<VideoStreamProps> = ({
   const stopStreaming = useCallback(() => {
     setIsStreaming(false);
     isStreamingRef.current = false;
+    
+    // Unlock orientation when stopping stream
+    if (screen.orientation && screen.orientation.unlock) {
+      try {
+        screen.orientation.unlock();
+      } catch (err) {
+        console.log('Orientation unlock failed:', err);
+      }
+    }
   }, []);
 
   const toggleCamera = useCallback(() => {
@@ -207,6 +297,12 @@ const VideoStream: React.FC<VideoStreamProps> = ({
       canvas.height = video.videoHeight;
     }
 
+    // Helper function to get responsive font size based on viewport
+    const getResponsiveFontSize = (baseSize: number): number => {
+      const isMobile = window.innerWidth <= 768 || window.innerHeight <= 768;
+      return isMobile ? Math.round(baseSize * 2.25) : baseSize;
+    };
+
     // Helper function to wrap text with approximately 5 words per line
     const wrapText = (text: string, maxWordsPerLine: number = 5): string[] => {
       const words = text.split(' ');
@@ -244,6 +340,24 @@ const VideoStream: React.FC<VideoStreamProps> = ({
       ctx.fill();
     };
 
+    // Helper function to draw an arrow between two points
+    const drawArrow = (ctx: CanvasRenderingContext2D, fromX: number, fromY: number, toX: number, toY: number) => {
+      const headLength = 10;
+      const angle = Math.atan2(toY - fromY, toX - fromX);
+
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX, toY);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 6), toY - headLength * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY - headLength * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+    };
+
     const drawFrame = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
@@ -254,25 +368,26 @@ const VideoStream: React.FC<VideoStreamProps> = ({
       // Show text labels with rounded background when NOT in debug mode
       if (!debugMode) {
         lastDetectionsRef.current.forEach((detection) => {
-          const { x, y, definition } = detection;
+          const { x, y, width, height, definition } = detection;
 
           // Use definition if available, otherwise skip
           if (!definition) return;
 
-          // Set up text
-          ctx.font = '18px Arial';
+          // Set up text with responsive font size
+          const fontSize = getResponsiveFontSize(18);
+          ctx.font = `${fontSize}px Arial`;
           const lines = wrapText(definition, 5);
           let maxWidth = 0;
-          
+
           // Calculate max width
           for (const line of lines) {
             const textMetrics = ctx.measureText(line);
             maxWidth = Math.max(maxWidth, textMetrics.width);
           }
 
-          const textHeight = 21;
+          const textHeight = fontSize + 2;
           const padding = 6;
-          
+
           const boxX = x;
           const boxY = y - (lines.length * textHeight) - padding;
           const boxWidth = maxWidth + padding * 2;
@@ -282,9 +397,19 @@ const VideoStream: React.FC<VideoStreamProps> = ({
           ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
           drawRoundedRect(ctx, boxX, boxY, boxWidth, boxHeight, 6);
 
+          // Draw arrow from text box to object center
+          const fromX = boxX + boxWidth / 2;
+          const fromY = boxY + boxHeight;
+          const toX = x + width / 2;
+          const toY = y + height / 2;
+          ctx.strokeStyle = 'rgb(173, 216, 230)';
+          ctx.fillStyle = 'rgb(173, 216, 230)';
+          ctx.lineWidth = 2;
+          drawArrow(ctx, fromX, fromY, toX, toY);
+
           // Draw definition text lines
           ctx.fillStyle = 'rgb(173, 216, 230)'; // Light blue
-          ctx.font = '18px Arial';
+          ctx.font = `${fontSize}px Arial`;
           let textOffsetY = boxY + textHeight;
           for (const line of lines) {
             ctx.fillText(line, boxX + padding / 2, textOffsetY);
@@ -308,21 +433,24 @@ const VideoStream: React.FC<VideoStreamProps> = ({
           // Wrap definition text to approximately 5 words per line
           const wrappedLines = defText ? wrapText(defText, 5) : [];
           
+          const labelFontSize = getResponsiveFontSize(16);
+          const defFontSize = getResponsiveFontSize(12);
+          
           ctx.fillStyle = 'rgb(0, 255, 0)';
-          ctx.font = 'bold 16px Arial';
+          ctx.font = `bold ${labelFontSize}px Arial`;
           const labelMetrics = ctx.measureText(labelText);
           
-          let totalHeight = 20;
+          let totalHeight = labelFontSize + 4;
           let maxWidth = labelMetrics.width;
           
           // Calculate total height needed for wrapped definition
           if (wrappedLines.length > 0) {
-            ctx.font = '12px Arial';
+            ctx.font = `${defFontSize}px Arial`;
             for (const line of wrappedLines) {
               const lineMetrics = ctx.measureText(line);
               maxWidth = Math.max(maxWidth, lineMetrics.width);
             }
-            totalHeight += wrappedLines.length * 14; // 14px per line for definition
+            totalHeight += wrappedLines.length * (defFontSize + 2); // per line for definition
           }
 
           // Background for text
@@ -331,13 +459,13 @@ const VideoStream: React.FC<VideoStreamProps> = ({
 
           // Draw label text
           ctx.fillStyle = 'rgb(0, 255, 0)';
-          ctx.font = 'bold 16px Arial';
+          ctx.font = `bold ${labelFontSize}px Arial`;
           ctx.fillText(labelText, x + 4, y - 6);
           
           // Draw wrapped definition text if available in light blue
           if (wrappedLines.length > 0) {
             ctx.fillStyle = 'rgb(173, 216, 230)'; // Light blue
-            ctx.font = '12px Arial';
+            ctx.font = `${defFontSize}px Arial`;
             let defOffsetY = y + 10;
             for (const line of wrappedLines) {
               ctx.fillText(line, x + 4, defOffsetY);
@@ -359,7 +487,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({
 
   return (
     <div className="video-stream-container">
-      <div className="video-wrapper">
+      <div className="video-wrapper" ref={videoWrapperRef}>
         <Webcam
           ref={webcamRef}
           audio={false}

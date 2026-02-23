@@ -46,14 +46,16 @@ function App() {
           />
         </div>
 
-        <aside className="sidebar">
-          <StatusPanel 
-            status={serverStatus}
-            detections={detections}
-            stats={stats}
-            debugMode={debug}
-          />
-        </aside>
+        {debug && (
+          <aside className="sidebar">
+            <StatusPanel 
+              status={serverStatus}
+              detections={detections}
+              stats={stats}
+              debugMode={debug}
+            />
+          </aside>
+        )}
       </main>
     </div>
   );

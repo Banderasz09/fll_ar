@@ -15,6 +15,11 @@
   overflow: hidden;
 }
 
+.main-container:has(.video-section:only-child) {
+  padding: 0;
+  gap: 0;
+}
+
 .video-section {
   flex: 1;
   display: flex;
@@ -52,6 +57,7 @@
 @media (max-width: 768px) {
   .app {
     height: 100vh;
+    height: 100dvh; /* Use dynamic viewport height for mobile */
   }
 
   .main-container {
@@ -59,6 +65,11 @@
     gap: 10px;
     padding: 10px;
     overflow: auto;
+  }
+
+  .main-container:has(.video-section:only-child) {
+    padding: 0;
+    gap: 0;
   }
 
   .video-section {
