@@ -32,7 +32,9 @@ DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
 # Object definitions dictionary mapping class names to their descriptions
 OBJECT_DEFINITIONS = {
-    "sarga": "lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+    "narancs": "Agyagos Talajréteg",
+    "zold": "Termékeny talajréteg",
+    "barna": "Dinoszaurusz csontváz",
 }
 
 # Initialize Redis

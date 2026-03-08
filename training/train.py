@@ -27,12 +27,13 @@ load_dotenv()
 
 # Configuration
 MODEL_ARCHITECTURE = "n"  # nano, small, medium, large
-EPOCHS = 50
+EPOCHS = 100  # Increased for small datasets
 BATCH_SIZE = 8
 PATIENCE = 20  # Early stopping
 IMG_SIZE = 640
 DEVICE = 0  # GPU index
 WORKERS = 8
+EXPORT_TENSORRT = False  # Set to True to enable TensorRT export
 
 
 def validate_dataset(dataset_yaml: str) -> bool:
@@ -113,6 +114,13 @@ def train(dataset_yaml: str, resume: bool = False) -> str:
         close_mosaic=10,  # Turn off mosaic augmentation for final 10 epochs
         mosaic=1.0,
         augment=True,
+        # Color augmentation - Conservative settings for color-based detection
+        hsv_h=0.01,  # Minimal hue shift (1%) - avoid changing brown/orange/green
+        hsv_s=0.3,  # Reduced saturation variation (30%)
+        hsv_v=0.3,  # Reduced brightness variation (30%)
+        # Class imbalance mitigation
+        copy_paste=0.5,  # Copy-paste augmentation to increase minority class samples
+        mixup=0.1,  # Mix images to help with class imbalance
         save=True,
         save_period=10,
         val=True,
@@ -206,7 +214,9 @@ def export_tensorrt(weights: str, output_dir: str = "models") -> str:
         return None
 
 
-def export_all(weights: str, output_dir: str = "models") -> dict:
+def export_all(
+    weights: str, output_dir: str = "models", tensorrt: bool = False
+) -> dict:
     """Export model to all supported formats."""
     os.makedirs(output_dir, exist_ok=True)
 
@@ -220,13 +230,16 @@ def export_all(weights: str, output_dir: str = "models") -> dict:
     except Exception as e:
         logger.error(f"ONNX export failed: {e}")
 
-    # Export TensorRT
-    try:
-        trt = export_tensorrt(weights, output_dir)
-        if trt:
-            exports["tensorrt"] = trt
-    except Exception as e:
-        logger.error(f"TensorRT export failed: {e}")
+    # Export TensorRT (optional)
+    if tensorrt:
+        try:
+            trt = export_tensorrt(weights, output_dir)
+            if trt:
+                exports["tensorrt"] = trt
+        except Exception as e:
+            logger.error(f"TensorRT export failed: {e}")
+    else:
+        logger.info("Skipping TensorRT export (disabled)")
 
     logger.info("✓ Export complete!")
     for fmt, path in exports.items():
@@ -252,6 +265,9 @@ def main():
     parser.add_argument(
         "--resume", action="store_true", help="Resume training from checkpoint"
     )
+    parser.add_argument(
+        "--tensorrt", action="store_true", help="Enable TensorRT export after training"
+    )
 
     args = parser.parse_args()
 
@@ -262,13 +278,13 @@ def main():
 
         best_weights = train(args.dataset, resume=args.resume)
         validate(best_weights, args.dataset)
-        export_all(best_weights)
+        export_all(best_weights, tensorrt=args.tensorrt)
 
     elif args.validate:
         validate(args.validate, args.dataset)
 
     elif args.export:
-        export_all(args.export)
+        export_all(args.export, tensorrt=args.tensorrt)
 
     else:
         parser.print_help()
